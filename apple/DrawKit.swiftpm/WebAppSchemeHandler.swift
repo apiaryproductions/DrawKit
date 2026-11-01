@@ -12,9 +12,26 @@ final class WebAppSchemeHandler: NSObject, WKURLSchemeHandler {
     private let root: URL
 
     override init() {
-        root = (Bundle.module.url(forResource: "webapp", withExtension: nil) ?? Bundle.main.bundleURL)
-            .standardizedFileURL
+        root = WebAppSchemeHandler.findWebApp().standardizedFileURL
         super.init()
+    }
+
+    /// Finds the bundled webapp folder, which is either in the app bundle or
+    /// in a resource bundle inside it (depending on how the app was built).
+    private static func findWebApp() -> URL {
+        if let url = Bundle.main.url(forResource: "webapp", withExtension: nil) {
+            return url
+        }
+
+        let bundles = Bundle.main.urls(forResourcesWithExtension: "bundle", subdirectory: nil) ?? []
+
+        for bundleURL in bundles {
+            if let url = Bundle(url: bundleURL)?.url(forResource: "webapp", withExtension: nil) {
+                return url
+            }
+        }
+
+        return Bundle.main.bundleURL.appendingPathComponent("webapp")
     }
 
     func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
