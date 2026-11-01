@@ -16,6 +16,13 @@ DrawKit is the draw.io editor turned into an automation app. You draw a flow and
 - Select a shape and tap **Action** (the ⚡ button). You can also long-press the shape and choose **Action**, or double-tap a shape that already has one. Pick what the step does.
 - Tap **▶ Run**. The step that is running is outlined in green. Tap **Log** to see each step's output.
 
+### Apple Pencil and the puck
+
+- The round **puck** floats over the canvas. On its own, the Pencil only draws ink and never selects anything.
+- **Hold the puck** with a finger of your other hand, and the Pencil selects, moves and connects shapes.
+- Fingers work as usual (tap to select, two fingers to scroll and zoom).
+- Drag the puck to move it. **Double-tap** it to switch the Pencil to always selecting, and double-tap again to switch back.
+
 ### Rules
 
 - A flow starts at its **Start** shape. With no Start shape, it starts at every shape that has an action and no incoming connector.

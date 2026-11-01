@@ -882,15 +882,228 @@
 			return getTooltipForCell.apply(this, arguments);
 		};
 
+		var puck = installPuck(ui);
+
 		window.DrawKit = {run: run, stop: function() { runner.stop(); }, editAction: editAction,
 			registerAction: registerAction, actions: Actions, readFlow: function() { return readFlow(graph); },
-			setActions: setActions, getLog: function() { return logLines.slice(); }, ui: ui};
+			setActions: setActions, getLog: function() { return logLines.slice(); }, puck: puck, ui: ui};
 
 		var h = host();
 
 		if (h != null && h.onPluginReady != null)
 		{
 			h.onPluginReady(window.DrawKit);
+		}
+	}
+
+	/**
+	 * Puck: a floating button for Apple Pencil users. The Pencil only draws
+	 * (freehand ink) unless a finger is holding the puck, in which case the
+	 * Pencil selects, moves and connects shapes like a mouse. Fingers keep
+	 * working as usual. Drag the puck to move it; double-tap it to turn
+	 * Pencil drawing off (the Pencil then always selects).
+	 */
+	function installPuck(ui)
+	{
+		var graph = ui.editor.graph;
+		var freehand = graph.freehand;
+		var held = {};
+		var heldCount = 0;
+		var penDraws = loadSetting('penDraws', true);
+		var lastTap = 0;
+
+		var puck = document.createElement('div');
+		puck.className = 'drawkitPuck';
+		puck.setAttribute('role', 'button');
+		puck.setAttribute('aria-label', 'Hold to select with Apple Pencil');
+		document.body.appendChild(puck);
+
+		var style = document.createElement('style');
+		style.textContent = '.drawkitPuck{position:fixed;width:64px;height:64px;border-radius:50%;z-index:6;' +
+			'touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;' +
+			'display:flex;align-items:center;justify-content:center;font:600 11px -apple-system,system-ui,sans-serif;' +
+			'text-align:center;line-height:1.1;background:rgba(255,255,255,.92);color:#111;' +
+			'border:2px solid #c7c7cc;box-shadow:0 4px 14px rgba(0,0,0,.18);transition:transform .08s,background .08s}' +
+			'.drawkitPuck.held{background:#0a84ff;border-color:#0a84ff;color:#fff;transform:scale(1.12)}' +
+			'.drawkitPuck.off{opacity:.55}' +
+			'@media (prefers-color-scheme: dark){.drawkitPuck{background:rgba(44,44,46,.92);color:#f2f2f7;' +
+			'border-color:#48484a}}';
+		document.head.appendChild(style);
+
+		var pos = loadSetting('puckPos', null);
+
+		function place(x, y)
+		{
+			x = Math.max(4, Math.min(window.innerWidth - 68, x));
+			y = Math.max(4, Math.min(window.innerHeight - 68, y));
+			puck.style.left = x + 'px';
+			puck.style.top = y + 'px';
+			pos = {x: x, y: y};
+		}
+
+		place(pos != null ? pos.x : 16, pos != null ? pos.y : window.innerHeight * 0.55);
+		window.addEventListener('resize', function() { place(pos.x, pos.y); });
+
+		function update()
+		{
+			puck.classList.toggle('held', heldCount > 0);
+			puck.classList.toggle('off', !penDraws);
+			puck.innerHTML = heldCount > 0 ? 'Select' : (penDraws ? 'Hold to<br>select' : 'Pencil<br>selects');
+		}
+
+		update();
+
+		var drag = null;
+
+		puck.addEventListener('pointerdown', function(evt)
+		{
+			evt.preventDefault();
+			evt.stopPropagation();
+			try
+			{
+				puck.setPointerCapture(evt.pointerId);
+			}
+			catch (e)
+			{
+				// Keeps working without capture
+			}
+
+			held[evt.pointerId] = true;
+			heldCount++;
+			drag = {id: evt.pointerId, x: evt.clientX, y: evt.clientY, left: pos.x, top: pos.y, moved: false};
+
+			stopPuckDrawing();
+
+			update();
+		});
+
+		puck.addEventListener('pointermove', function(evt)
+		{
+			if (drag != null && drag.id == evt.pointerId)
+			{
+				var dx = evt.clientX - drag.x, dy = evt.clientY - drag.y;
+
+				if (drag.moved || Math.abs(dx) + Math.abs(dy) > 12)
+				{
+					drag.moved = true;
+					place(drag.left + dx, drag.top + dy);
+				}
+			}
+		});
+
+		function release(evt)
+		{
+			if (held[evt.pointerId])
+			{
+				delete held[evt.pointerId];
+				heldCount = Math.max(0, heldCount - 1);
+
+				if (drag != null && drag.id == evt.pointerId)
+				{
+					if (drag.moved)
+					{
+						saveSetting('puckPos', pos);
+					}
+					else if (evt.type == 'pointerup')
+					{
+						var now = Date.now();
+
+						if (now - lastTap < 350)
+						{
+							penDraws = !penDraws;
+							saveSetting('penDraws', penDraws);
+							lastTap = 0;
+						}
+						else
+						{
+							lastTap = now;
+						}
+					}
+
+					drag = null;
+				}
+
+				update();
+			}
+		}
+
+		puck.addEventListener('pointerup', release);
+		puck.addEventListener('pointercancel', release);
+		puck.addEventListener('lostpointercapture', release);
+		puck.addEventListener('contextmenu', function(evt) { evt.preventDefault(); });
+
+		// Only turns off freehand drawing that the puck turned on, and leaves
+		// draw.io's own Freehand tool alone
+		var puckStarted = false;
+
+		function stopPuckDrawing()
+		{
+			if (puckStarted && freehand.isDrawing() && !freehand.isActive())
+			{
+				freehand.stopDrawing();
+			}
+
+			puckStarted = false;
+		}
+
+		// Decides what a touch on the canvas does before draw.io sees it
+		function routePointer(evt)
+		{
+			if (freehand == null || (ui.freehandWindow != null && ui.freehandWindow.window.isVisible()))
+			{
+				return;
+			}
+
+			if (evt.pointerType == 'pen' && penDraws && heldCount == 0)
+			{
+				if (!freehand.isDrawing())
+				{
+					graph.clearSelection();
+					freehand.setAutoInsert(true);
+					freehand.setStopClickEnabled(false);
+					freehand.setSelectInserted(false);
+					freehand.startDrawing();
+					puckStarted = true;
+				}
+			}
+			else
+			{
+				stopPuckDrawing();
+			}
+		}
+
+		graph.container.addEventListener('pointerdown', routePointer, true);
+
+		return {
+			isHeld: function() { return heldCount > 0; },
+			setPenDraws: function(value) { penDraws = !!value; saveSetting('penDraws', penDraws); update(); },
+			element: puck
+		};
+	}
+
+	function loadSetting(key, defaultValue)
+	{
+		try
+		{
+			var value = window.localStorage.getItem('drawkit.' + key);
+
+			return (value != null) ? JSON.parse(value) : defaultValue;
+		}
+		catch (e)
+		{
+			return defaultValue;
+		}
+	}
+
+	function saveSetting(key, value)
+	{
+		try
+		{
+			window.localStorage.setItem('drawkit.' + key, JSON.stringify(value));
+		}
+		catch (e)
+		{
+			// Settings are optional
 		}
 	}
 
