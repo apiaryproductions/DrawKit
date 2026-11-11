@@ -31,6 +31,12 @@
 		['rotate', 'Rotate selection (slide sideways)']
 	];
 
+	var MENU_OPTIONS = [
+		['next', 'Highlight next item'],
+		['run', 'Run highlighted item'],
+		['close', 'Close menu']
+	];
+
 	var INPUTS = [
 		{id: 'penDrag', title: 'Pencil drag', kind: 'drag'},
 		{id: 'penTap', title: 'Pencil tap', kind: 'tap'},
@@ -41,6 +47,8 @@
 		{id: 'doubleTap', title: 'Pencil double-tap', kind: 'tap'},
 		{id: 'squeeze', title: 'Pencil squeeze (Pencil Pro)', kind: 'tap'},
 		{id: 'puckDoubleTap', title: 'Puck double-tap', kind: 'tap'},
+		{id: 'menuDoubleTap', title: 'Pencil double-tap while the menu is open', kind: 'menu'},
+		{id: 'menuSqueeze', title: 'Pencil squeeze while the menu is open', kind: 'menu'},
 		{id: 'thumbDrag', title: 'Thumb zone + Pencil drag', kind: 'drag', group: 'Control pad (sidebar)'},
 		{id: 'thumbTap', title: 'Thumb zone + Pencil tap', kind: 'tap'},
 		{id: 'fingersDrag', title: 'Finger zone + Pencil drag', kind: 'drag'},
@@ -57,7 +65,8 @@
 			finger1Drag: 'zoom', finger2Drag: 'pan', doubleTap: 'menu', squeeze: 'menu', puckDoubleTap: 'menu',
 			thumbDrag: 'selectBox', thumbTap: 'rightClick', fingersDrag: 'pan', fingersTap: 'none',
 			bothDrag: 'connect', bothTap: 'menu',
-			padFingersSlide: 'pan', padThumbFingersSlide: 'zoom', padThumbSlide: 'none'},
+			padFingersSlide: 'pan', padThumbFingersSlide: 'zoom', padThumbSlide: 'none',
+			menuDoubleTap: 'next', menuSqueeze: 'run'},
 		favorites: ['drawMode', 'connectMode', 'action', 'run', 'undo', 'delete', 'duplicate', 'gestures'],
 		menuStyle: 'radial',
 		calm: true
@@ -1145,8 +1154,8 @@
 					heading(body, input.group);
 				}
 
-				inputs[input.id] = select(input.kind == 'drag' ? DRAG_OPTIONS :
-					(input.kind == 'slide' ? SLIDE_OPTIONS : TAP_OPTIONS), settings.bindings[input.id]);
+				inputs[input.id] = select(input.kind == 'drag' ? DRAG_OPTIONS : (input.kind == 'slide' ? SLIDE_OPTIONS :
+					(input.kind == 'menu' ? MENU_OPTIONS : TAP_OPTIONS)), settings.bindings[input.id]);
 				row(body, input.title, inputs[input.id]);
 			}
 
@@ -1266,8 +1275,23 @@
 			{
 				if (overlay != null)
 				{
-					// Each further double-tap moves to the next ring item
-					(ring.items.length > 0) ? advanceRing() : closeMenu();
+					var binding = settings.bindings[kind == 'squeeze' ? 'menuSqueeze' : 'menuDoubleTap'];
+					var item = (ring.index >= 0) ? ring.items[ring.index] : null;
+
+					if (binding == 'next' && ring.items.length > 0)
+					{
+						advanceRing();
+					}
+					else if (binding == 'run' && item != null)
+					{
+						closeMenu();
+						COMMANDS[item.id].run();
+					}
+					else
+					{
+						closeMenu();
+					}
+
 					return;
 				}
 
