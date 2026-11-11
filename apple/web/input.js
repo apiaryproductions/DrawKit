@@ -288,6 +288,103 @@
 		}, true);
 
 		/**
+		 * On iPad, draw.io listens to touch and mouse events, not pointer
+		 * events, so the touch events of a Pencil gesture that DrawKit
+		 * handles (and of fingers in a Pencil chord) are stopped here.
+		 * Pointer events come first, so the decision is already made.
+		 */
+		var penTouchesBlocked = false;
+		var fingerTouches = {};
+		var blockedTouches = {};
+
+		function filterTouches(evt)
+		{
+			var stylus = false;
+			var blocked = false;
+
+			for (var i = 0; i < evt.changedTouches.length; i++)
+			{
+				var t = evt.changedTouches[i];
+
+				if (t.touchType == 'stylus')
+				{
+					stylus = true;
+				}
+				else
+				{
+					if (evt.type == 'touchstart' && !puck.contains(evt.target))
+					{
+						fingerTouches[t.identifier] = true;
+					}
+
+					if (blockedTouches[t.identifier])
+					{
+						blocked = true;
+					}
+				}
+			}
+
+			if ((stylus && penTouchesBlocked) || blocked)
+			{
+				evt.stopPropagation();
+
+				if (evt.cancelable)
+				{
+					// Also stops the mouse events made from touches
+					evt.preventDefault();
+				}
+			}
+
+			if (evt.type == 'touchend' || evt.type == 'touchcancel')
+			{
+				for (var i = 0; i < evt.changedTouches.length; i++)
+				{
+					var t = evt.changedTouches[i];
+
+					if (t.touchType == 'stylus')
+					{
+						penTouchesBlocked = false;
+					}
+					else
+					{
+						delete fingerTouches[t.identifier];
+						delete blockedTouches[t.identifier];
+					}
+				}
+			}
+		}
+
+		['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function(name)
+		{
+			window.addEventListener(name, filterTouches, {capture: true, passive: false});
+		});
+
+		// Pinch gestures from a finger plus the Pencil (or the puck)
+		['gesturestart', 'gesturechange', 'gestureend'].forEach(function(name)
+		{
+			window.addEventListener(name, function(evt)
+			{
+				if (penTouchesBlocked || gesture != null || puckHeld())
+				{
+					evt.stopPropagation();
+					evt.preventDefault();
+				}
+			}, true);
+		});
+
+		// Mouse events made from a blocked Pencil touch
+		['mousedown', 'mousemove', 'mouseup'].forEach(function(name)
+		{
+			window.addEventListener(name, function(evt)
+			{
+				if (penTouchesBlocked && container.contains(evt.target))
+				{
+					evt.stopPropagation();
+				}
+			}, true);
+		});
+
+		/**
 		 * Pencil routing
 		 */
 		var gesture = null;
@@ -327,6 +424,7 @@
 			}
 
 			lastPen = {x: evt.clientX, y: evt.clientY};
+			penTouchesBlocked = false;
 
 			if (drawMode)
 			{
@@ -344,6 +442,11 @@
 				for (var id in fingers)
 				{
 					blockedFingers[id] = true;
+				}
+
+				for (var id in fingerTouches)
+				{
+					blockedTouches[id] = true;
 				}
 			}
 
@@ -364,6 +467,7 @@
 
 			stopFreehand();
 			consume(evt);
+			penTouchesBlocked = true;
 
 			try
 			{
