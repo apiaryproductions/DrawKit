@@ -36,6 +36,7 @@ Default gestures (change them under **Menu → Gestures**):
 - **Draw** and **Connect** in the menu are modes: the puck shows which one is on, and you tap the button again to turn it off. In Connect mode, drag from one shape to another.
 - **Calm touch** (on by default, in Gestures) hides draw.io's connection arrows and points, so fewer things react to a touch.
 - Drag the puck to move it.
+- With the ring open, each further Pencil double-tap highlights the next item; tap the screen with the Pencil to run it, or tap with a finger to close.
 
 ### Rules
 

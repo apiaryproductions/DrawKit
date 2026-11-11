@@ -939,12 +939,31 @@
 		 */
 		var overlay = null;
 
+		// Ring items and the one highlighted by repeated Pencil double-taps
+		var ring = {items: [], index: -1};
+
 		function closeMenu()
 		{
 			if (overlay != null)
 			{
 				overlay.parentNode.removeChild(overlay);
 				overlay = null;
+			}
+
+			ring = {items: [], index: -1};
+		}
+
+		function advanceRing()
+		{
+			if (ring.items.length > 0)
+			{
+				if (ring.index >= 0)
+				{
+					ring.items[ring.index].button.classList.remove('hl');
+				}
+
+				ring.index = (ring.index + 1) % ring.items.length;
+				ring.items[ring.index].button.classList.add('hl');
 			}
 		}
 
@@ -959,9 +978,27 @@
 				if (evt.target == overlay)
 				{
 					consume(evt);
+
+					// A Pencil tap anywhere runs the highlighted item
+					var item = (evt.pointerType == 'pen' && ring.index >= 0) ? ring.items[ring.index] : null;
 					closeMenu();
+
+					if (item != null)
+					{
+						COMMANDS[item.id].run();
+					}
 				}
 			});
+
+			// Stops the mouse events Safari makes from the tap, which would
+			// otherwise reach the shape under the closed menu
+			overlay.addEventListener('touchstart', function(evt)
+			{
+				if (evt.target == overlay && evt.cancelable)
+				{
+					evt.preventDefault();
+				}
+			}, {passive: false});
 
 			document.body.appendChild(overlay);
 
@@ -1016,6 +1053,7 @@
 				button.style.left = (x + radius * Math.cos(angle) - 32) + 'px';
 				button.style.top = (y + radius * Math.sin(angle) - 32) + 'px';
 				o.appendChild(button);
+				ring.items.push({id: favorites[i], button: button});
 			}
 
 			var more = document.createElement('button');
@@ -1201,6 +1239,7 @@
 			'.drawkitRingItem{position:absolute;width:64px;height:64px;border-radius:50%}' +
 			'.drawkitRingItem .icon,.drawkitGridItem .icon{font-size:20px;line-height:1}' +
 			'.drawkitRingCenter{position:absolute;width:52px;height:52px;border-radius:50%;font-size:16px}' +
+			'.drawkitRingItem.hl{outline:3px solid #0a84ff;outline-offset:2px;transform:scale(1.12)}' +
 			'.drawkitRingItem.on,.drawkitGridItem.on{background:#ff9500;border-color:#ff9500;color:#fff}' +
 			'.drawkitGrid{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;' +
 			'grid-template-columns:repeat(auto-fill,76px);gap:8px;width:min(520px,calc(100vw - 32px));' +
@@ -1227,7 +1266,8 @@
 			{
 				if (overlay != null)
 				{
-					closeMenu();
+					// Each further double-tap moves to the next ring item
+					(ring.items.length > 0) ? advanceRing() : closeMenu();
 					return;
 				}
 
