@@ -883,10 +883,12 @@
 		};
 
 		var puck = installPuck(ui);
+		var autosave = installAutosave(ui);
 
 		window.DrawKit = {run: run, stop: function() { runner.stop(); }, editAction: editAction,
 			registerAction: registerAction, actions: Actions, readFlow: function() { return readFlow(graph); },
-			setActions: setActions, getLog: function() { return logLines.slice(); }, puck: puck, ui: ui};
+			setActions: setActions, getLog: function() { return logLines.slice(); }, puck: puck,
+			startAutosave: autosave.start, flushSave: autosave.flush, ui: ui};
 
 		var h = host();
 
@@ -1078,6 +1080,93 @@
 			isHeld: function() { return heldCount > 0; },
 			setPenDraws: function(value) { penDraws = !!value; saveSetting('penDraws', penDraws); update(); },
 			element: puck
+		};
+	}
+
+	/**
+	 * Saves the flow to the app after changes settle: 1.5 seconds without a
+	 * change and no finger or Pencil on the canvas. Leaving the app or the
+	 * flow saves right away.
+	 */
+	function installAutosave(ui)
+	{
+		var graph = ui.editor.graph;
+		var DELAY = 1500;
+		var enabled = false;
+		var timer = null;
+		var lastSaved = null;
+		var pointersDown = 0;
+
+		function getData()
+		{
+			return (urlParams['pages'] != '0' || (ui.pages != null && ui.pages.length > 1)) ?
+				ui.getFileData(true) : mxUtils.getXml(ui.editor.getGraphXml());
+		}
+
+		function save()
+		{
+			window.clearTimeout(timer);
+			timer = null;
+
+			if (!enabled)
+			{
+				return;
+			}
+
+			var data = getData();
+
+			if (data != lastSaved)
+			{
+				lastSaved = data;
+				native('saveDocument', {xml: data}).catch(function() {});
+			}
+		}
+
+		function schedule()
+		{
+			if (enabled)
+			{
+				window.clearTimeout(timer);
+				timer = window.setTimeout(function()
+				{
+					// Waits for the current gesture to end
+					(pointersDown > 0) ? schedule() : save();
+				}, DELAY);
+			}
+		}
+
+		graph.getModel().addListener(mxEvent.CHANGE, schedule);
+		ui.addListener('pageFormatChanged', schedule);
+		ui.addListener('backgroundColorChanged', schedule);
+		ui.addListener('pageViewChanged', schedule);
+
+		document.addEventListener('pointerdown', function() { pointersDown++; }, true);
+
+		var up = function() { pointersDown = Math.max(0, pointersDown - 1); };
+		document.addEventListener('pointerup', up, true);
+		document.addEventListener('pointercancel', up, true);
+
+		document.addEventListener('visibilitychange', function()
+		{
+			if (document.visibilityState == 'hidden' && timer != null)
+			{
+				save();
+			}
+		});
+
+		return {
+			start: function()
+			{
+				enabled = true;
+				lastSaved = getData();
+			},
+			flush: function()
+			{
+				if (timer != null)
+				{
+					save();
+				}
+			}
 		};
 	}
 

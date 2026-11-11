@@ -11,6 +11,7 @@ final class FlowLibrary: ObservableObject {
 
     @Published private(set) var flows: [Flow] = []
     let folder: URL
+    private let writeQueue = DispatchQueue(label: "DrawKit.FlowLibrary.write")
 
     init() {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -56,11 +57,17 @@ final class FlowLibrary: ObservableObject {
     }
 
     func read(_ flow: Flow) -> String {
-        (try? String(contentsOf: flow.url, encoding: .utf8)) ?? ""
+        writeQueue.sync {} // Waits for pending saves
+        return (try? String(contentsOf: flow.url, encoding: .utf8)) ?? ""
     }
 
+    /// Writes in the background, in order, so saving never blocks the editor
     func write(_ xml: String, to flow: Flow) {
-        try? xml.write(to: flow.url, atomically: true, encoding: .utf8)
+        let url = flow.url
+
+        writeQueue.async {
+            try? xml.write(to: url, atomically: true, encoding: .utf8)
+        }
     }
 
     private func uniqueURL(for base: String) -> URL {

@@ -19,7 +19,7 @@
  * Native side (WKWebView) provides window.webkit.messageHandlers.drawkit,
  * whose postMessage({name, params}) returns a Promise with the reply:
  * - getDocument -> xml string
- * - saveDocument {xml}
+ * - saveDocument {xml} (sent by flow.js, debounced)
  * - flowEvent {type, ...}
  * - notify, copy, paste, runShortcut, openURL, http (see flow.js)
  */
@@ -84,6 +84,14 @@
 				this.plugin.stop();
 			}
 		},
+		// Saves pending changes now (called by the app when leaving a flow)
+		flush: function()
+		{
+			if (this.plugin != null)
+			{
+				this.plugin.flushSave();
+			}
+		},
 		editAction: function()
 		{
 			if (this.plugin != null)
@@ -115,14 +123,32 @@
 		{
 			native('getDocument').then(function(xml)
 			{
-				send({action: 'load', xml: xml || '', autosave: 1, title: ''});
+				send({action: 'load', xml: xml || '', title: ''});
 			}).catch(function()
 			{
 				// Browser preview without the app
-				send({action: 'load', xml: '', autosave: 1});
+				send({action: 'load', xml: ''});
 			});
 		}
-		else if ((msg.event == 'autosave' || msg.event == 'save') && msg.xml != null)
+		else if (msg.event == 'load')
+		{
+			// Saving starts once the flow is in the editor, so the empty
+			// diagram shown while loading never replaces the file
+			var start = function()
+			{
+				if (DrawKitHost.plugin != null)
+				{
+					DrawKitHost.plugin.startAutosave();
+				}
+				else
+				{
+					window.setTimeout(start, 100);
+				}
+			};
+
+			start();
+		}
+		else if (msg.event == 'save' && msg.xml != null)
 		{
 			native('saveDocument', {xml: msg.xml}).catch(function() {});
 		}

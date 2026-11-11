@@ -37,6 +37,9 @@ struct EditorScreen: View {
             .onAppear {
                 editor.open(flow, in: library)
             }
+            .onDisappear {
+                editor.call("flush")
+            }
     }
 }
 
