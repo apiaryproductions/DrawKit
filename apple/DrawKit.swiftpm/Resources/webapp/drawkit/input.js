@@ -57,7 +57,9 @@
 		{id: 'bothTap', title: 'Both zones + Pencil tap', kind: 'tap'},
 		{id: 'padFingersSlide', title: 'Slide in finger zone', kind: 'slide'},
 		{id: 'padThumbFingersSlide', title: 'Hold thumb, slide fingers', kind: 'slide'},
-		{id: 'padThumbSlide', title: 'Slide in thumb zone', kind: 'slide'}
+		{id: 'padThumbSlide', title: 'Slide in thumb zone', kind: 'slide'},
+		{id: 'padFingersDoubleTap', title: 'Double-tap finger zone', kind: 'tap'},
+		{id: 'padThumbDoubleTap', title: 'Double-tap thumb zone', kind: 'tap'}
 	];
 
 	var DEFAULTS = {
@@ -66,7 +68,7 @@
 			thumbDrag: 'selectBox', thumbTap: 'rightClick', fingersDrag: 'pan', fingersTap: 'none',
 			bothDrag: 'connect', bothTap: 'menu',
 			padFingersSlide: 'pan', padThumbFingersSlide: 'zoom', padThumbSlide: 'none',
-			menuDoubleTap: 'next', menuSqueeze: 'run'},
+			menuDoubleTap: 'next', menuSqueeze: 'run', padFingersDoubleTap: 'menuNext', padThumbDoubleTap: 'none'},
 		favorites: ['drawMode', 'connectMode', 'action', 'run', 'undo', 'delete', 'duplicate', 'gestures'],
 		menuStyle: 'radial',
 		calm: true
@@ -175,7 +177,8 @@
 			gestures: {title: 'Gestures', icon: '⚙️', run: function() { openSettings(); }}
 		};
 
-		var TAP_OPTIONS = [['none', 'Nothing'], ['rightClick', 'Right-click'], ['menu', 'Menu']];
+		var TAP_OPTIONS = [['none', 'Nothing'], ['rightClick', 'Right-click'], ['menu', 'Menu'],
+			['menuNext', 'Menu, then next item'], ['menuRun', 'Run highlighted menu item']];
 
 		for (var id in COMMANDS)
 		{
@@ -190,7 +193,15 @@
 			}
 			else if (binding == 'menu')
 			{
-				openMenu(x, y);
+				(overlay != null) ? closeMenu() : openMenu(x, y);
+			}
+			else if (binding == 'menuNext')
+			{
+				(overlay != null) ? advanceRing() : openMenu(x, y);
+			}
+			else if (binding == 'menuRun')
+			{
+				runHighlighted();
 			}
 			else if (COMMANDS[binding] != null)
 			{
@@ -721,6 +732,7 @@
 		 * Control pad: thumb and finger zones in the app's sidebar
 		 */
 		var pad = {thumb: false, fingers: false, rotation: 0};
+		var padTap = {};
 		var ROTATE_STEP = 15;
 
 		function padSlide(binding, dx, dy)
@@ -783,16 +795,43 @@
 				return;
 			}
 
+			if (phase == 'down')
+			{
+				padTap[zone] = {time: Date.now(), moved: 0, last: padTap[zone] != null ? padTap[zone].last : 0};
+			}
+			else if (phase == 'move' && padTap[zone] != null)
+			{
+				padTap[zone].moved += Math.abs(dx || 0) + Math.abs(dy || 0);
+			}
+			else if (phase == 'up' && padTap[zone] != null)
+			{
+				var t = padTap[zone];
+				var now = Date.now();
+
+				// A short touch without movement is a tap, two in a row a double-tap
+				if (t.moved < 8 && now - t.time < 300)
+				{
+					if (now - t.last < 400)
+					{
+						t.last = 0;
+						runTap(settings.bindings[zone == 'thumb' ? 'padThumbDoubleTap' : 'padFingersDoubleTap'],
+							null, null);
+					}
+					else
+					{
+						t.last = now;
+					}
+				}
+				else
+				{
+					t.last = 0;
+				}
+			}
+
 			if (phase == 'down' || phase == 'up')
 			{
 				pad[zone] = (phase == 'down');
 				pad.rotation = 0;
-
-				if (phase == 'down')
-				{
-					// A Pencil stroke started in Draw mode keeps drawing
-					closeMenu();
-				}
 
 				updatePuck();
 			}
@@ -960,6 +999,17 @@
 			}
 
 			ring = {items: [], index: -1};
+		}
+
+		function runHighlighted()
+		{
+			var item = (ring.index >= 0) ? ring.items[ring.index] : null;
+			closeMenu();
+
+			if (item != null)
+			{
+				COMMANDS[item.id].run();
+			}
 		}
 
 		function advanceRing()
@@ -1284,8 +1334,7 @@
 					}
 					else if (binding == 'run' && item != null)
 					{
-						closeMenu();
-						COMMANDS[item.id].run();
+						runHighlighted();
 					}
 					else
 					{
