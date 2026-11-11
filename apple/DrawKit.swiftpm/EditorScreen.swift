@@ -68,6 +68,11 @@ final class EditorController: NSObject, ObservableObject, WKUIDelegate {
         super.init()
         messages.controller = self
         webView.uiDelegate = self
+
+        // Apple Pencil double-tap and squeeze open the menu (see web/input.js)
+        let pencil = UIPencilInteraction()
+        pencil.delegate = self
+        webView.addInteraction(pencil)
         webView.isOpaque = false
         webView.backgroundColor = .systemBackground
         webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -116,6 +121,15 @@ final class EditorController: NSObject, ObservableObject, WKUIDelegate {
         default:
             return try await NativeActions.perform(name, params)
         }
+    }
+
+    // MARK: - Apple Pencil double-tap and squeeze
+
+    /// Sends the gesture to the editor, with the Pencil's position when it
+    /// hovers over the screen
+    private func sendPencil(_ kind: String, at location: CGPoint?) {
+        let point = location.map { "\($0.x), \($0.y)" } ?? "null, null"
+        webView.evaluateJavaScript("DrawKitHost.pencil('\(kind)', \(point))", completionHandler: nil)
     }
 
     // MARK: - Alerts, confirmations and prompts from the editor and flows
@@ -195,6 +209,25 @@ private final class MessageHandler: NSObject, WKScriptMessageHandlerWithReply {
             } catch {
                 replyHandler(nil, error.localizedDescription)
             }
+        }
+    }
+}
+
+extension EditorController: UIPencilInteractionDelegate {
+    // iPadOS before 17.5
+    func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+        sendPencil("doubleTap", at: nil)
+    }
+
+    @available(iOS 17.5, *)
+    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
+        sendPencil("doubleTap", at: tap.hoverPose?.location)
+    }
+
+    @available(iOS 17.5, *)
+    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveSqueeze squeeze: UIPencilInteraction.Squeeze) {
+        if squeeze.phase == .ended {
+            sendPencil("squeeze", at: squeeze.hoverPose?.location)
         }
     }
 }

@@ -17,11 +17,11 @@ cp -R "$SRC/." "$DEST/"
 	service-worker.js workbox-*.js && find . -name '*.map' -delete)
 
 # editor.html is index.html with the flow plugin added
-sed 's#<script src="js/bootstrap.js"></script>#<script src="drawkit/flow.js"></script>\n\t<script src="js/bootstrap.js"></script>#' \
+sed 's#<script src="js/bootstrap.js"></script>#<script src="drawkit/flow.js"></script>\n\t<script src="drawkit/input.js"></script>\n\t<script src="js/bootstrap.js"></script>#' \
 	"$SRC/index.html" > "$DEST/editor.html"
 grep -q 'drawkit/flow.js' "$DEST/editor.html" || { echo "Could not add plugin to editor.html" >&2; exit 1; }
 
 mkdir -p "$DEST/drawkit"
-cp "$ROOT/apple/web/flow.js" "$DEST/drawkit/flow.js"
+cp "$ROOT/apple/web/flow.js" "$ROOT/apple/web/input.js" "$DEST/drawkit/"
 cp "$ROOT/apple/web/host.html" "$DEST/host.html"
 du -sh "$DEST"

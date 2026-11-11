@@ -16,12 +16,25 @@ DrawKit is the draw.io editor turned into an automation app. You draw a flow and
 - Select a shape and tap **Action** (the ⚡ button). You can also long-press the shape and choose **Action**, or double-tap a shape that already has one. Pick what the step does.
 - Tap **▶ Run**. The step that is running is outlined in green. Tap **Log** to see each step's output.
 
-### Apple Pencil and the puck
+### Apple Pencil, the puck and the menu
 
-- The round **puck** floats over the canvas. On its own, the Pencil only draws ink and never selects anything.
-- **Hold the puck** with a finger of your other hand, and the Pencil selects, moves and connects shapes.
-- Fingers work as usual (tap to select, two fingers to scroll and zoom).
-- Drag the puck to move it. **Double-tap** it to switch the Pencil to always selecting, and double-tap again to switch back.
+Default gestures (change them under **Menu → Gestures**):
+
+| Input | Does |
+|---|---|
+| Pencil drag | Moves the selection if you start on it, otherwise pans |
+| Pencil tap | Nothing |
+| Hold puck + Pencil drag | Selection box |
+| Hold puck + Pencil tap | Right-click (selects the shape and shows its menu) |
+| 1 finger + Pencil drag | Zoom (drag up and down) |
+| 2 fingers + Pencil drag | Pan |
+| Pencil double-tap / squeeze, or puck double-tap | Menu |
+
+- Fingers work as usual.
+- The **menu** is a ring of up to 8 favourites. Tap ••• in the middle for every command, including **Gestures**, where you change the gestures, the favourites and the menu style (ring or grid).
+- **Draw** and **Connect** in the menu are modes: the puck shows which one is on, and you tap the button again to turn it off. In Connect mode, drag from one shape to another.
+- **Calm touch** (on by default, in Gestures) hides draw.io's connection arrows and points, so fewer things react to a touch.
+- Drag the puck to move it.
 
 ### Rules
 

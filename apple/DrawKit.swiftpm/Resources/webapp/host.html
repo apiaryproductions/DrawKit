@@ -84,6 +84,16 @@
 				this.plugin.stop();
 			}
 		},
+		// Apple Pencil double-tap or squeeze (kind), at x, y if known
+		pencil: function(kind, x, y)
+		{
+			var input = frame.contentWindow.DrawKitInput;
+
+			if (input != null)
+			{
+				input.pencil(kind, x, y);
+			}
+		},
 		// Saves pending changes now (called by the app when leaving a flow)
 		flush: function()
 		{
@@ -139,6 +149,11 @@
 				if (DrawKitHost.plugin != null)
 				{
 					DrawKitHost.plugin.startAutosave();
+
+					if (frame.contentWindow.DrawKitInput != null)
+					{
+						frame.contentWindow.DrawKitInput.applySettings();
+					}
 				}
 				else
 				{
