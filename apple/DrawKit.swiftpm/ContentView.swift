@@ -32,6 +32,9 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Flows")
+            .safeAreaInset(edge: .bottom) {
+                ControlPad()
+            }
             .toolbar {
                 Button {
                     selection = library.create()

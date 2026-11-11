@@ -90,7 +90,17 @@ final class EditorController: NSObject, ObservableObject, WKUIDelegate {
 
         self.flow = flow
         self.library = library
+        EditorController.current = self
         webView.load(URLRequest(url: WebAppSchemeHandler.startURL))
+    }
+
+    /// The editor that the control pad in the sidebar talks to
+    static weak var current: EditorController?
+
+    /// Sends a control pad touch (zone "thumb" or "fingers", phase "down",
+    /// "move" or "up", movement in points) to the editor
+    func sendPad(_ zone: String, _ phase: String, dx: CGFloat = 0, dy: CGFloat = 0) {
+        webView.evaluateJavaScript("DrawKitHost.pad('\(zone)', '\(phase)', \(dx), \(dy))", completionHandler: nil)
     }
 
     /// Calls run(), stop() or editAction() on DrawKitHost in host.html

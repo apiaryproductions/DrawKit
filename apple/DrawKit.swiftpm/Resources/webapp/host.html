@@ -94,6 +94,16 @@
 				input.pencil(kind, x, y);
 			}
 		},
+		// Control pad touch from the app's sidebar
+		pad: function(zone, phase, dx, dy)
+		{
+			var input = frame.contentWindow.DrawKitInput;
+
+			if (input != null)
+			{
+				input.pad(zone, phase, dx, dy);
+			}
+		},
 		// Saves pending changes now (called by the app when leaving a flow)
 		flush: function()
 		{

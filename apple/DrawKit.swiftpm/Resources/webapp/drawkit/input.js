@@ -24,6 +24,13 @@
 		['connect', 'Connect shapes']
 	];
 
+	var SLIDE_OPTIONS = [
+		['none', 'Nothing'],
+		['pan', 'Pan'],
+		['zoom', 'Zoom (slide up and down)'],
+		['rotate', 'Rotate selection (slide sideways)']
+	];
+
 	var INPUTS = [
 		{id: 'penDrag', title: 'Pencil drag', kind: 'drag'},
 		{id: 'penTap', title: 'Pencil tap', kind: 'tap'},
@@ -33,12 +40,24 @@
 		{id: 'finger2Drag', title: '2 fingers + Pencil drag', kind: 'drag'},
 		{id: 'doubleTap', title: 'Pencil double-tap', kind: 'tap'},
 		{id: 'squeeze', title: 'Pencil squeeze (Pencil Pro)', kind: 'tap'},
-		{id: 'puckDoubleTap', title: 'Puck double-tap', kind: 'tap'}
+		{id: 'puckDoubleTap', title: 'Puck double-tap', kind: 'tap'},
+		{id: 'thumbDrag', title: 'Thumb zone + Pencil drag', kind: 'drag', group: 'Control pad (sidebar)'},
+		{id: 'thumbTap', title: 'Thumb zone + Pencil tap', kind: 'tap'},
+		{id: 'fingersDrag', title: 'Finger zone + Pencil drag', kind: 'drag'},
+		{id: 'fingersTap', title: 'Finger zone + Pencil tap', kind: 'tap'},
+		{id: 'bothDrag', title: 'Both zones + Pencil drag', kind: 'drag'},
+		{id: 'bothTap', title: 'Both zones + Pencil tap', kind: 'tap'},
+		{id: 'padFingersSlide', title: 'Slide in finger zone', kind: 'slide'},
+		{id: 'padThumbFingersSlide', title: 'Hold thumb, slide fingers', kind: 'slide'},
+		{id: 'padThumbSlide', title: 'Slide in thumb zone', kind: 'slide'}
 	];
 
 	var DEFAULTS = {
 		bindings: {penDrag: 'moveOrPan', penTap: 'none', puckDrag: 'selectBox', puckTap: 'rightClick',
-			finger1Drag: 'zoom', finger2Drag: 'pan', doubleTap: 'menu', squeeze: 'menu', puckDoubleTap: 'menu'},
+			finger1Drag: 'zoom', finger2Drag: 'pan', doubleTap: 'menu', squeeze: 'menu', puckDoubleTap: 'menu',
+			thumbDrag: 'selectBox', thumbTap: 'rightClick', fingersDrag: 'pan', fingersTap: 'none',
+			bothDrag: 'connect', bothTap: 'menu',
+			padFingersSlide: 'pan', padThumbFingersSlide: 'zoom', padThumbSlide: 'none'},
 		favorites: ['drawMode', 'connectMode', 'action', 'run', 'undo', 'delete', 'duplicate', 'gestures'],
 		menuStyle: 'radial',
 		calm: true
@@ -432,7 +451,8 @@
 				return;
 			}
 
-			var key = puckHeld() ? 'puck' : (fingerCount == 1 ? 'finger1' : (fingerCount > 1 ? 'finger2' : 'pen'));
+			var key = puckHeld() ? 'puck' : (pad.thumb && pad.fingers ? 'both' : (pad.thumb ? 'thumb' :
+				(pad.fingers ? 'fingers' : (fingerCount == 1 ? 'finger1' : (fingerCount > 1 ? 'finger2' : 'pen')))));
 
 			if (key == 'finger1' || key == 'finger2')
 			{
@@ -590,17 +610,7 @@
 			else if (g.drag == 'zoom')
 			{
 				// Zooms around the point where the drag started
-				var cr = container.getBoundingClientRect();
-				var ax = g.x0 - cr.left, ay = g.y0 - cr.top;
-				var t = graph.view.translate, s = graph.view.scale;
-				var gx = (ax + container.scrollLeft) / s - t.x;
-				var gy = (ay + container.scrollTop) / s - t.y;
-				var scale = Math.max(0.1, Math.min(8, g.scale * Math.exp((g.y0 - evt.clientY) / 200)));
-				graph.zoomTo(scale);
-				t = graph.view.translate;
-				s = graph.view.scale;
-				container.scrollLeft = (gx + t.x) * s - ax;
-				container.scrollTop = (gy + t.y) * s - ay;
+				zoomAround(g.x0, g.y0, g.scale * Math.exp((g.y0 - evt.clientY) / 200));
 			}
 			else if (g.drag == 'selectBox')
 			{
@@ -617,6 +627,20 @@
 				line.setAttribute('x2', evt.clientX);
 				line.setAttribute('y2', evt.clientY);
 			}
+		}
+
+		function zoomAround(clientX, clientY, scale)
+		{
+			var cr = container.getBoundingClientRect();
+			var ax = clientX - cr.left, ay = clientY - cr.top;
+			var t = graph.view.translate, s = graph.view.scale;
+			var gx = (ax + container.scrollLeft) / s - t.x;
+			var gy = (ay + container.scrollTop) / s - t.y;
+			graph.zoomTo(Math.max(0.1, Math.min(8, scale)));
+			t = graph.view.translate;
+			s = graph.view.scale;
+			container.scrollLeft = (gx + t.x) * s - ax;
+			container.scrollTop = (gy + t.y) * s - ay;
 		}
 
 		function endDrag(g, evt, cancelled)
@@ -685,6 +709,94 @@
 		}
 
 		/**
+		 * Control pad: thumb and finger zones in the app's sidebar
+		 */
+		var pad = {thumb: false, fingers: false, rotation: 0};
+		var ROTATE_STEP = 15;
+
+		function padSlide(binding, dx, dy)
+		{
+			if (binding == 'pan')
+			{
+				container.scrollLeft -= dx * 1.5;
+				container.scrollTop -= dy * 1.5;
+			}
+			else if (binding == 'zoom')
+			{
+				var cr = container.getBoundingClientRect();
+				zoomAround(cr.left + cr.width / 2, cr.top + cr.height / 2,
+					graph.view.scale * Math.exp(-dy / 150));
+			}
+			else if (binding == 'rotate')
+			{
+				// Turns in 15 degree steps, one undo step each
+				pad.rotation += dx * 0.75;
+
+				while (Math.abs(pad.rotation) >= ROTATE_STEP)
+				{
+					var step = (pad.rotation > 0) ? ROTATE_STEP : -ROTATE_STEP;
+					pad.rotation -= step;
+					rotateSelection(step);
+				}
+			}
+		}
+
+		function rotateSelection(degrees)
+		{
+			var cells = graph.getSelectionCells().filter(function(c) { return graph.getModel().isVertex(c); });
+
+			if (cells.length == 0)
+			{
+				return;
+			}
+
+			graph.getModel().beginUpdate();
+
+			try
+			{
+				for (var i = 0; i < cells.length; i++)
+				{
+					var style = graph.getCurrentCellStyle(cells[i]);
+					var angle = (parseFloat(style[mxConstants.STYLE_ROTATION] || 0) + degrees + 360) % 360;
+					graph.setCellStyles(mxConstants.STYLE_ROTATION, angle, [cells[i]]);
+				}
+			}
+			finally
+			{
+				graph.getModel().endUpdate();
+			}
+		}
+
+		function handlePad(zone, phase, dx, dy)
+		{
+			if (zone != 'thumb' && zone != 'fingers')
+			{
+				return;
+			}
+
+			if (phase == 'down' || phase == 'up')
+			{
+				pad[zone] = (phase == 'down');
+				pad.rotation = 0;
+
+				if (phase == 'down')
+				{
+					// A Pencil stroke started in Draw mode keeps drawing
+					closeMenu();
+				}
+
+				updatePuck();
+			}
+			else if (phase == 'move')
+			{
+				var binding = (zone == 'fingers') ?
+					(pad.thumb ? settings.bindings.padThumbFingersSlide : settings.bindings.padFingersSlide) :
+					settings.bindings.padThumbSlide;
+				padSlide(binding, dx || 0, dy || 0);
+			}
+		}
+
+		/**
 		 * Puck
 		 */
 		var puck = document.createElement('div');
@@ -724,9 +836,11 @@
 		function updatePuck()
 		{
 			var mode = drawMode ? 'Draw' : (connectMode ? 'Connect' : null);
-			puck.classList.toggle('held', puckHeld());
+			puck.classList.toggle('held', puckHeld() || pad.thumb || pad.fingers);
 			puck.classList.toggle('mode', mode != null);
-			puck.innerHTML = puckHeld() ? 'Select' : (mode != null ? mode + '<br><small>mode</small>' : 'Hold to<br>select');
+			var padLabel = (pad.thumb && pad.fingers) ? 'Both' : (pad.thumb ? 'Thumb' : (pad.fingers ? 'Fingers' : null));
+			puck.innerHTML = puckHeld() ? 'Select' : (padLabel != null ? padLabel :
+				(mode != null ? mode + '<br><small>mode</small>' : 'Hold to<br>select'));
 			puck.setAttribute('aria-label', mode != null ? mode + ' mode' : 'Hold to select with Apple Pencil');
 		}
 
@@ -988,8 +1102,13 @@
 			for (var i = 0; i < INPUTS.length; i++)
 			{
 				var input = INPUTS[i];
-				inputs[input.id] = select(input.kind == 'drag' ? DRAG_OPTIONS : TAP_OPTIONS,
-					settings.bindings[input.id]);
+				if (input.group != null)
+				{
+					heading(body, input.group);
+				}
+
+				inputs[input.id] = select(input.kind == 'drag' ? DRAG_OPTIONS :
+					(input.kind == 'slide' ? SLIDE_OPTIONS : TAP_OPTIONS), settings.bindings[input.id]);
 				row(body, input.title, inputs[input.id]);
 			}
 
@@ -1120,6 +1239,8 @@
 
 				runTap(settings.bindings[kind] || 'none', x, y);
 			},
+			// Control pad in the app's sidebar
+			pad: handlePad,
 			// The editor resets some options when a flow loads
 			applySettings: applyCalm,
 			openMenu: openMenu,
