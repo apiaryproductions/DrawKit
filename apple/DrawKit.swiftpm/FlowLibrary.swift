@@ -37,6 +37,7 @@ final class FlowLibrary: ObservableObject {
     }
 
     func delete(_ flow: Flow) {
+        writeQueue.sync {} // Pending saves finish first
         try? FileManager.default.removeItem(at: flow.url)
         reload()
     }
@@ -50,6 +51,7 @@ final class FlowLibrary: ObservableObject {
             return flow
         }
 
+        writeQueue.sync {} // Pending saves finish first
         let url = uniqueURL(for: trimmed)
         try? FileManager.default.moveItem(at: flow.url, to: url)
         reload()
@@ -66,6 +68,12 @@ final class FlowLibrary: ObservableObject {
         let url = flow.url
 
         writeQueue.async {
+            // A save that arrives after the flow was renamed or deleted
+            // must not bring the old file back
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                return
+            }
+
             try? xml.write(to: url, atomically: true, encoding: .utf8)
         }
     }

@@ -447,7 +447,13 @@
 					}
 
 					emit('step', {cell: node.cell, title: def.title});
-					result = await def.run(ctx, resolveParams(def, node.action.params, ctx));
+					// Stop also ends steps that wait on the app (Shortcuts, web requests)
+					var stopped = new Promise(function(resolve, reject)
+					{
+						ctx.onStop(function() { reject(new Error('Stopped')); });
+					});
+					var params = resolveParams(def, node.action.params, ctx);
+					result = await Promise.race([Promise.resolve().then(function() { return def.run(ctx, params); }), stopped]);
 					self.stopHandlers = [];
 
 					if (result === undefined)

@@ -122,8 +122,9 @@ enum NativeActions {
     // MARK: - Web requests
 
     static func http(url: String, method: String, headers: String, body: String) async throws -> String {
-        guard let requestURL = URL(string: url), requestURL.scheme == "http" || requestURL.scheme == "https" else {
-            throw ActionError("Not a valid web address: \(url)")
+        // iOS blocks plain http:// requests (App Transport Security)
+        guard let requestURL = URL(string: url), requestURL.scheme == "https" else {
+            throw ActionError("Web Request needs an https:// address: \(url)")
         }
 
         var request = URLRequest(url: requestURL)
