@@ -31,12 +31,12 @@ Default gestures (change them under **Menu → Gestures**):
 | Pencil double-tap / squeeze, or puck double-tap | Menu |
 
 - Fingers work as usual.
-- The **control pad** at the bottom of the Flows sidebar has a **Fingers** zone and a **Thumb** zone for your other hand. Holding a zone changes what the Pencil does (thumb: selection box and right-click, as with the puck; fingers: pan; both: connect). Sliding in the finger zone pans, and holding your thumb while sliding your fingers up and down zooms. Rotate selection is an option in Gestures.
+- The **control pad** at the bottom of the Flows sidebar counts the fingers on it: **Finger 1, 2 or 3**. Holding fingers there changes what the Pencil does (Finger 1: selection box and right-click; Finger 2: pan; Finger 3: connect). Sliding pans with 1 finger, zooms with 2 (up and down) and rotates the selection with 3. Double-tapping with 1 finger opens the menu, then moves to the next item. All of it can be changed in Gestures.
 - The **menu** is a ring of up to 8 favourites. Tap ••• in the middle for every command, including **Gestures**, where you change the gestures, the favourites and the menu style (ring or grid).
 - **Draw** and **Connect** in the menu are modes: the puck shows which one is on, and you tap the button again to turn it off. In Connect mode, drag from one shape to another.
 - **Calm touch** (on by default, in Gestures) hides draw.io's connection arrows and points, so fewer things react to a touch.
 - Drag the puck to move it.
-- With the ring open, each further Pencil double-tap highlights the next item (changeable in Gestures), and so does double-tapping the finger zone; tap the screen with the Pencil to run it, or tap with a finger to close.
+- With the ring open, each further Pencil double-tap highlights the next item (changeable in Gestures), and so does a Finger 1 double-tap on the control pad; tap the screen with the Pencil to run it, or tap with a finger to close.
 
 ### Rules
 

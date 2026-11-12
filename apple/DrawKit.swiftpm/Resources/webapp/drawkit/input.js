@@ -4,7 +4,8 @@
  *
  * - Every Pencil gesture on the canvas is routed by the bindings in
  *   settings (Gestures in the menu): which drag or tap action runs depends
- *   on whether the puck or one or two fingers are held down.
+ *   on whether the puck, fingers on the canvas or fingers on the control pad
+ *   are held down.
  * - The puck is a floating button: hold it while using the Pencil, or
  *   double-tap it for the menu. It also shows the current mode.
  * - The menu is a ring of favourites with a grid of every command behind
@@ -49,26 +50,27 @@
 		{id: 'puckDoubleTap', title: 'Puck double-tap', kind: 'tap'},
 		{id: 'menuDoubleTap', title: 'Pencil double-tap while the menu is open', kind: 'menu'},
 		{id: 'menuSqueeze', title: 'Pencil squeeze while the menu is open', kind: 'menu'},
-		{id: 'thumbDrag', title: 'Thumb zone + Pencil drag', kind: 'drag', group: 'Control pad (sidebar)'},
-		{id: 'thumbTap', title: 'Thumb zone + Pencil tap', kind: 'tap'},
-		{id: 'fingersDrag', title: 'Finger zone + Pencil drag', kind: 'drag'},
-		{id: 'fingersTap', title: 'Finger zone + Pencil tap', kind: 'tap'},
-		{id: 'bothDrag', title: 'Both zones + Pencil drag', kind: 'drag'},
-		{id: 'bothTap', title: 'Both zones + Pencil tap', kind: 'tap'},
-		{id: 'padFingersSlide', title: 'Slide in finger zone', kind: 'slide'},
-		{id: 'padThumbFingersSlide', title: 'Hold thumb, slide fingers', kind: 'slide'},
-		{id: 'padThumbSlide', title: 'Slide in thumb zone', kind: 'slide'},
-		{id: 'padFingersDoubleTap', title: 'Double-tap finger zone', kind: 'tap'},
-		{id: 'padThumbDoubleTap', title: 'Double-tap thumb zone', kind: 'tap'}
+		{id: 'pad1Drag', title: 'Finger 1 + Pencil drag', kind: 'drag', group: 'Control pad (sidebar): 1, 2 or 3 fingers on it'},
+		{id: 'pad1Tap', title: 'Finger 1 + Pencil tap', kind: 'tap'},
+		{id: 'pad1Slide', title: 'Finger 1 slide', kind: 'slide'},
+		{id: 'pad1DoubleTap', title: 'Finger 1 double-tap', kind: 'tap'},
+		{id: 'pad2Drag', title: 'Finger 2 + Pencil drag', kind: 'drag'},
+		{id: 'pad2Tap', title: 'Finger 2 + Pencil tap', kind: 'tap'},
+		{id: 'pad2Slide', title: 'Finger 2 slide', kind: 'slide'},
+		{id: 'pad2DoubleTap', title: 'Finger 2 double-tap', kind: 'tap'},
+		{id: 'pad3Drag', title: 'Finger 3 + Pencil drag', kind: 'drag'},
+		{id: 'pad3Tap', title: 'Finger 3 + Pencil tap', kind: 'tap'},
+		{id: 'pad3Slide', title: 'Finger 3 slide', kind: 'slide'},
+		{id: 'pad3DoubleTap', title: 'Finger 3 double-tap', kind: 'tap'}
 	];
 
 	var DEFAULTS = {
 		bindings: {penDrag: 'moveOrPan', penTap: 'none', puckDrag: 'selectBox', puckTap: 'rightClick',
 			finger1Drag: 'zoom', finger2Drag: 'pan', doubleTap: 'menu', squeeze: 'menu', puckDoubleTap: 'menu',
-			thumbDrag: 'selectBox', thumbTap: 'rightClick', fingersDrag: 'pan', fingersTap: 'none',
-			bothDrag: 'connect', bothTap: 'menu',
-			padFingersSlide: 'pan', padThumbFingersSlide: 'zoom', padThumbSlide: 'none',
-			menuDoubleTap: 'next', menuSqueeze: 'run', padFingersDoubleTap: 'menuNext', padThumbDoubleTap: 'none'},
+			pad1Drag: 'selectBox', pad1Tap: 'rightClick', pad1Slide: 'pan', pad1DoubleTap: 'menuNext',
+			pad2Drag: 'pan', pad2Tap: 'none', pad2Slide: 'zoom', pad2DoubleTap: 'none',
+			pad3Drag: 'connect', pad3Tap: 'menu', pad3Slide: 'rotate', pad3DoubleTap: 'none',
+			menuDoubleTap: 'next', menuSqueeze: 'run'},
 		favorites: ['drawMode', 'connectMode', 'action', 'run', 'undo', 'delete', 'duplicate', 'gestures'],
 		menuStyle: 'radial',
 		calm: true
@@ -471,8 +473,8 @@
 				return;
 			}
 
-			var key = puckHeld() ? 'puck' : (pad.thumb && pad.fingers ? 'both' : (pad.thumb ? 'thumb' :
-				(pad.fingers ? 'fingers' : (fingerCount == 1 ? 'finger1' : (fingerCount > 1 ? 'finger2' : 'pen')))));
+			var key = puckHeld() ? 'puck' : (pad.count > 0 ? 'pad' + Math.min(pad.count, 3) :
+				(fingerCount == 1 ? 'finger1' : (fingerCount > 1 ? 'finger2' : 'pen')));
 
 			if (key == 'finger1' || key == 'finger2')
 			{
@@ -729,10 +731,10 @@
 		}
 
 		/**
-		 * Control pad: thumb and finger zones in the app's sidebar
+		 * Control pad in the app's sidebar: the app reports how many fingers
+		 * are on it (1, 2 or 3) and how they move
 		 */
-		var pad = {thumb: false, fingers: false, rotation: 0};
-		var padTap = {};
+		var pad = {count: 0, rotation: 0, touch: null, lastTap: {}};
 		var ROTATE_STEP = 15;
 
 		function padSlide(binding, dx, dy)
@@ -788,59 +790,61 @@
 			}
 		}
 
-		function handlePad(zone, phase, dx, dy)
+		function handlePad(phase, a, b)
 		{
-			if (zone != 'thumb' && zone != 'fingers')
+			if (phase == 'count')
 			{
-				return;
-			}
-
-			if (phase == 'down')
-			{
-				padTap[zone] = {time: Date.now(), moved: 0, last: padTap[zone] != null ? padTap[zone].last : 0};
-			}
-			else if (phase == 'move' && padTap[zone] != null)
-			{
-				padTap[zone].moved += Math.abs(dx || 0) + Math.abs(dy || 0);
-			}
-			else if (phase == 'up' && padTap[zone] != null)
-			{
-				var t = padTap[zone];
+				var count = Math.max(0, Math.round(a || 0));
 				var now = Date.now();
 
-				// A short touch without movement is a tap, two in a row a double-tap
-				if (t.moved < 8 && now - t.time < 300)
+				if (pad.count == 0 && count > 0)
 				{
-					if (now - t.last < 400)
+					pad.touch = {time: now, max: count, moved: 0};
+				}
+				else if (pad.touch != null && count > pad.touch.max)
+				{
+					pad.touch.max = count;
+				}
+
+				// A short touch without movement is a tap; two quick taps with
+				// the same number of fingers a double-tap
+				if (count == 0 && pad.touch != null)
+				{
+					var t = pad.touch;
+					var n = Math.min(t.max, 3);
+					pad.touch = null;
+
+					if (t.moved < 8 && now - t.time < 300)
 					{
-						t.last = 0;
-						runTap(settings.bindings[zone == 'thumb' ? 'padThumbDoubleTap' : 'padFingersDoubleTap'],
-							null, null);
+						if (now - (pad.lastTap[n] || 0) < 400)
+						{
+							pad.lastTap[n] = 0;
+							runTap(settings.bindings['pad' + n + 'DoubleTap'], null, null);
+						}
+						else
+						{
+							pad.lastTap = {};
+							pad.lastTap[n] = now;
+						}
 					}
 					else
 					{
-						t.last = now;
+						pad.lastTap = {};
 					}
 				}
-				else
-				{
-					t.last = 0;
-				}
-			}
 
-			if (phase == 'down' || phase == 'up')
-			{
-				pad[zone] = (phase == 'down');
+				pad.count = count;
 				pad.rotation = 0;
-
 				updatePuck();
 			}
-			else if (phase == 'move')
+			else if (phase == 'move' && pad.count > 0)
 			{
-				var binding = (zone == 'fingers') ?
-					(pad.thumb ? settings.bindings.padThumbFingersSlide : settings.bindings.padFingersSlide) :
-					settings.bindings.padThumbSlide;
-				padSlide(binding, dx || 0, dy || 0);
+				if (pad.touch != null)
+				{
+					pad.touch.moved += Math.abs(a || 0) + Math.abs(b || 0);
+				}
+
+				padSlide(settings.bindings['pad' + Math.min(pad.count, 3) + 'Slide'], a || 0, b || 0);
 			}
 		}
 
@@ -884,9 +888,9 @@
 		function updatePuck()
 		{
 			var mode = drawMode ? 'Draw' : (connectMode ? 'Connect' : null);
-			puck.classList.toggle('held', puckHeld() || pad.thumb || pad.fingers);
+			puck.classList.toggle('held', puckHeld() || pad.count > 0);
 			puck.classList.toggle('mode', mode != null);
-			var padLabel = (pad.thumb && pad.fingers) ? 'Both' : (pad.thumb ? 'Thumb' : (pad.fingers ? 'Fingers' : null));
+			var padLabel = (pad.count > 0) ? 'Finger ' + Math.min(pad.count, 3) : null;
 			puck.innerHTML = puckHeld() ? 'Select' : (padLabel != null ? padLabel :
 				(mode != null ? mode + '<br><small>mode</small>' : 'Hold to<br>select'));
 			puck.setAttribute('aria-label', mode != null ? mode + ' mode' : 'Hold to select with Apple Pencil');

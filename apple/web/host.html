@@ -95,13 +95,13 @@
 			}
 		},
 		// Control pad touch from the app's sidebar
-		pad: function(zone, phase, dx, dy)
+		pad: function(phase, a, b)
 		{
 			var input = frame.contentWindow.DrawKitInput;
 
 			if (input != null)
 			{
-				input.pad(zone, phase, dx, dy);
+				input.pad(phase, a, b);
 			}
 		},
 		// Saves pending changes now (called by the app when leaving a flow)
