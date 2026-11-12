@@ -50,7 +50,7 @@
 		{id: 'puckDoubleTap', title: 'Puck double-tap', kind: 'tap'},
 		{id: 'menuDoubleTap', title: 'Pencil double-tap while the menu is open', kind: 'menu'},
 		{id: 'menuSqueeze', title: 'Pencil squeeze while the menu is open', kind: 'menu'},
-		{id: 'pad1Drag', title: 'Finger 1 + Pencil drag', kind: 'drag', group: 'Control pad (sidebar): 1, 2 or 3 fingers on it'},
+		{id: 'pad1Drag', title: 'Finger 1 + Pencil drag', kind: 'drag', group: 'Control pad (sidebar): 1 to 4 fingers on it'},
 		{id: 'pad1Tap', title: 'Finger 1 + Pencil tap', kind: 'tap'},
 		{id: 'pad1Slide', title: 'Finger 1 slide', kind: 'slide'},
 		{id: 'pad1DoubleTap', title: 'Finger 1 double-tap', kind: 'tap'},
@@ -61,8 +61,16 @@
 		{id: 'pad3Drag', title: 'Finger 3 + Pencil drag', kind: 'drag'},
 		{id: 'pad3Tap', title: 'Finger 3 + Pencil tap', kind: 'tap'},
 		{id: 'pad3Slide', title: 'Finger 3 slide', kind: 'slide'},
-		{id: 'pad3DoubleTap', title: 'Finger 3 double-tap', kind: 'tap'}
+		{id: 'pad3DoubleTap', title: 'Finger 3 double-tap', kind: 'tap'},
+		{id: 'pad4Drag', title: 'Finger 4 + Pencil drag', kind: 'drag'},
+		{id: 'pad4Tap', title: 'Finger 4 + Pencil tap', kind: 'tap'},
+		{id: 'pad4Slide', title: 'Finger 4 slide', kind: 'slide'},
+		{id: 'pad4DoubleTap', title: 'Finger 4 double-tap', kind: 'tap'}
 	];
+
+	// Colour for each number of fingers on the control pad (CMYK)
+	var PAD_COLORS = ['#00AEEF', '#EC008C', '#FFD400', '#111111'];
+	var MAX_PAD_FINGERS = 4;
 
 	var DEFAULTS = {
 		bindings: {penDrag: 'moveOrPan', penTap: 'none', puckDrag: 'selectBox', puckTap: 'rightClick',
@@ -70,6 +78,7 @@
 			pad1Drag: 'selectBox', pad1Tap: 'rightClick', pad1Slide: 'pan', pad1DoubleTap: 'menuNext',
 			pad2Drag: 'pan', pad2Tap: 'none', pad2Slide: 'zoom', pad2DoubleTap: 'none',
 			pad3Drag: 'connect', pad3Tap: 'menu', pad3Slide: 'rotate', pad3DoubleTap: 'none',
+			pad4Drag: 'none', pad4Tap: 'none', pad4Slide: 'none', pad4DoubleTap: 'none',
 			menuDoubleTap: 'next', menuSqueeze: 'run'},
 		favorites: ['drawMode', 'connectMode', 'action', 'run', 'undo', 'delete', 'duplicate', 'gestures'],
 		menuStyle: 'radial',
@@ -473,7 +482,7 @@
 				return;
 			}
 
-			var key = puckHeld() ? 'puck' : (pad.count > 0 ? 'pad' + Math.min(pad.count, 3) :
+			var key = puckHeld() ? 'puck' : (pad.count > 0 ? 'pad' + Math.min(pad.count, MAX_PAD_FINGERS) :
 				(fingerCount == 1 ? 'finger1' : (fingerCount > 1 ? 'finger2' : 'pen')));
 
 			if (key == 'finger1' || key == 'finger2')
@@ -811,7 +820,7 @@
 				if (count == 0 && pad.touch != null)
 				{
 					var t = pad.touch;
-					var n = Math.min(t.max, 3);
+					var n = Math.min(t.max, MAX_PAD_FINGERS);
 					pad.touch = null;
 
 					if (t.moved < 8 && now - t.time < 300)
@@ -844,8 +853,50 @@
 					pad.touch.moved += Math.abs(a || 0) + Math.abs(b || 0);
 				}
 
-				padSlide(settings.bindings['pad' + Math.min(pad.count, 3) + 'Slide'], a || 0, b || 0);
+				padSlide(settings.bindings['pad' + Math.min(pad.count, MAX_PAD_FINGERS) + 'Slide'], a || 0, b || 0);
 			}
+		}
+
+		/**
+		 * Banner at the top that says what the fingers on the control pad do
+		 */
+		var banner = document.createElement('div');
+		banner.className = 'drawkitBanner';
+		banner.style.display = 'none';
+		document.body.appendChild(banner);
+
+		function optionTitle(options, value)
+		{
+			for (var i = 0; i < options.length; i++)
+			{
+				if (options[i][0] == value)
+				{
+					return options[i][1];
+				}
+			}
+
+			return 'Nothing';
+		}
+
+		function updateBanner()
+		{
+			if (pad.count == 0)
+			{
+				banner.style.display = 'none';
+				return;
+			}
+
+			var n = Math.min(pad.count, MAX_PAD_FINGERS);
+			var b = settings.bindings;
+			var color = PAD_COLORS[n - 1];
+			banner.style.display = '';
+			banner.style.borderColor = color;
+			banner.innerHTML = '<span class="dot"></span><b></b><span class="text"></span>';
+			banner.querySelector('.dot').style.background = color;
+			banner.querySelector('b').textContent = 'Finger ' + n + ' (hold)';
+			banner.querySelector('.text').textContent = ' Pencil drag: ' + optionTitle(DRAG_OPTIONS, b['pad' + n + 'Drag']) +
+				' · Pencil tap: ' + optionTitle(TAP_OPTIONS, b['pad' + n + 'Tap']) +
+				' · Slide: ' + optionTitle(SLIDE_OPTIONS, b['pad' + n + 'Slide']);
 		}
 
 		/**
@@ -890,7 +941,11 @@
 			var mode = drawMode ? 'Draw' : (connectMode ? 'Connect' : null);
 			puck.classList.toggle('held', puckHeld() || pad.count > 0);
 			puck.classList.toggle('mode', mode != null);
-			var padLabel = (pad.count > 0) ? 'Finger ' + Math.min(pad.count, 3) : null;
+			var padLabel = (pad.count > 0) ? 'Finger ' + Math.min(pad.count, MAX_PAD_FINGERS) : null;
+			puck.style.background = (padLabel != null && !puckHeld()) ? PAD_COLORS[Math.min(pad.count, MAX_PAD_FINGERS) - 1] : '';
+			puck.style.borderColor = puck.style.background;
+			puck.style.color = (padLabel != null && !puckHeld() && pad.count != 3) ? '#fff' : '';
+			updateBanner();
 			puck.innerHTML = puckHeld() ? 'Select' : (padLabel != null ? padLabel :
 				(mode != null ? mode + '<br><small>mode</small>' : 'Hold to<br>select'));
 			puck.setAttribute('aria-label', mode != null ? mode + ' mode' : 'Hold to select with Apple Pencil');
@@ -1291,6 +1346,11 @@
 			'.drawkitPuck small{font-weight:400;font-size:9px}' +
 			'.drawkitPuck.held{background:#0a84ff;border-color:#0a84ff;color:#fff;transform:scale(1.12)}' +
 			'.drawkitPuck.mode:not(.held){border-color:#ff9500;box-shadow:0 0 0 3px rgba(255,149,0,.35),0 4px 14px rgba(0,0,0,.18)}' +
+			'.drawkitBanner{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:7;max-width:calc(100vw - 24px);' +
+			'padding:8px 14px;border-radius:12px;border:3px solid;background:rgba(255,255,255,.97);color:#111;' +
+			'font:13px -apple-system,system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.2);pointer-events:none;' +
+			'display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+			'.drawkitBanner .dot{width:14px;height:14px;border-radius:50%;flex:none}' +
 			'.drawkitSelectBox{position:fixed;z-index:6;border:1.5px dashed #0a84ff;background:rgba(10,132,255,.1);' +
 			'pointer-events:none}' +
 			'.drawkitConnectLine{position:fixed;inset:0;width:100vw;height:100vh;z-index:6;pointer-events:none}' +
@@ -1316,7 +1376,7 @@
 			'.drawkitSettings .drawkitRow select{width:55%}' +
 			'.drawkitSettings .drawkitRow input[type=checkbox]{width:auto}' +
 			'.drawkitHeading{font-weight:700;font-size:14px;margin-top:8px}' +
-			'@media (prefers-color-scheme: dark){.drawkitPuck,.drawkitRingItem,.drawkitRingCenter,' +
+			'@media (prefers-color-scheme: dark){.drawkitPuck,.drawkitRingItem,.drawkitRingCenter,.drawkitBanner,' +
 			'.drawkitGridItem{background:rgba(44,44,46,.97);color:#f2f2f7;border-color:#48484a}' +
 			'.drawkitGrid{background:rgba(28,28,30,.97)}}';
 		document.head.appendChild(css);

@@ -2,24 +2,34 @@ import SwiftUI
 import UIKit
 
 /// A touch zone in the sidebar for the hand that isn't holding the Pencil.
-/// It counts the fingers on it (Finger 1, 2 or 3): holding changes what the
-/// Pencil does, and sliding pans, zooms or rotates. What each does is set in
-/// the editor's Gestures settings (see web/input.js).
+/// It counts the fingers on it (Finger 1 to 4, shown in cyan, magenta,
+/// yellow and black): holding changes what the Pencil does, and sliding
+/// pans, zooms or rotates. What each does is set in the editor's Gestures
+/// settings (see web/input.js).
 struct ControlPad: View {
     @State private var count = 0
+
+    private static let colors: [Color] = [
+        Color(red: 0, green: 0.68, blue: 0.94),    // cyan
+        Color(red: 0.93, green: 0, blue: 0.55),    // magenta
+        Color(red: 1, green: 0.83, blue: 0),       // yellow
+        Color(white: 0.07)                         // black
+    ]
+
+    private var fingers: Int { min(count, Self.colors.count) }
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20)
-                .fill(count > 0 ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.12))
+                .fill(count > 0 ? Self.colors[fingers - 1] : Color.secondary.opacity(0.12))
 
             VStack(spacing: 6) {
                 Image(systemName: "hand.raised")
                     .font(.title2)
-                Text(count > 0 ? "Finger \(min(count, 3))" : "Control pad")
+                Text(count > 0 ? "Finger \(fingers)" : "Control pad")
                     .font(.headline)
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(count > 0 ? (fingers == 3 ? Color.black : Color.white) : Color.secondary)
             .allowsHitTesting(false)
 
             MultiTouchArea(
