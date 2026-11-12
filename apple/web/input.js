@@ -863,7 +863,19 @@
 		var banner = document.createElement('div');
 		banner.className = 'drawkitBanner';
 		banner.style.display = 'none';
-		document.body.appendChild(banner);
+
+		// Sits in the toolbar after its buttons, or at the top without a toolbar
+		var toolbar = (ui.toolbar != null) ? ui.toolbar.container : null;
+
+		if (toolbar != null)
+		{
+			banner.classList.add('inToolbar');
+			toolbar.appendChild(banner);
+		}
+		else
+		{
+			document.body.appendChild(banner);
+		}
 
 		function optionTitle(options, value)
 		{
@@ -876,6 +888,12 @@
 			}
 
 			return 'Nothing';
+		}
+
+		// Short form for the banner: "Zoom (slide up and down)" becomes "Zoom"
+		function shortTitle(options, value)
+		{
+			return optionTitle(options, value).replace(/\s*\(.*\)$/, '');
 		}
 
 		function updateBanner()
@@ -893,10 +911,10 @@
 			banner.style.borderColor = color;
 			banner.innerHTML = '<span class="dot"></span><b></b><span class="text"></span>';
 			banner.querySelector('.dot').style.background = color;
-			banner.querySelector('b').textContent = 'Finger ' + n + ' (hold)';
-			banner.querySelector('.text').textContent = ' Pencil drag: ' + optionTitle(DRAG_OPTIONS, b['pad' + n + 'Drag']) +
-				' · Pencil tap: ' + optionTitle(TAP_OPTIONS, b['pad' + n + 'Tap']) +
-				' · Slide: ' + optionTitle(SLIDE_OPTIONS, b['pad' + n + 'Slide']);
+			banner.querySelector('b').textContent = 'Finger ' + n;
+			banner.querySelector('.text').textContent = 'Drag: ' + shortTitle(DRAG_OPTIONS, b['pad' + n + 'Drag']) +
+				' · Tap: ' + shortTitle(TAP_OPTIONS, b['pad' + n + 'Tap']) +
+				' · Slide: ' + shortTitle(SLIDE_OPTIONS, b['pad' + n + 'Slide']);
 		}
 
 		/**
@@ -1351,6 +1369,10 @@
 			'font:13px -apple-system,system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.2);pointer-events:none;' +
 			'display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
 			'.drawkitBanner .dot{width:14px;height:14px;border-radius:50%;flex:none}' +
+			'.drawkitBanner .text{overflow:hidden;text-overflow:ellipsis}' +
+			'.drawkitBanner.inToolbar{position:static;transform:none;box-shadow:none;display:inline-flex;' +
+			'vertical-align:middle;margin-left:10px;padding:2px 10px;border-width:2px;border-radius:8px;' +
+			'max-width:calc(100% - 640px);min-width:120px;font-size:12px;line-height:20px;box-sizing:border-box}' +
 			'.drawkitSelectBox{position:fixed;z-index:6;border:1.5px dashed #0a84ff;background:rgba(10,132,255,.1);' +
 			'pointer-events:none}' +
 			'.drawkitConnectLine{position:fixed;inset:0;width:100vw;height:100vh;z-index:6;pointer-events:none}' +
