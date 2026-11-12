@@ -97,10 +97,10 @@ final class EditorController: NSObject, ObservableObject, WKUIDelegate {
     /// The editor that the control pad in the sidebar talks to
     static weak var current: EditorController?
 
-    /// Sends a control pad touch (zone "thumb" or "fingers", phase "down",
-    /// "move" or "up", movement in points) to the editor
-    func sendPad(_ zone: String, _ phase: String, dx: CGFloat = 0, dy: CGFloat = 0) {
-        webView.evaluateJavaScript("DrawKitHost.pad('\(zone)', '\(phase)', \(dx), \(dy))", completionHandler: nil)
+    /// Sends a control pad change to the editor: "count" with the number of
+    /// fingers on the pad, or "move" with how far they moved (in points)
+    func sendPad(_ phase: String, _ a: CGFloat = 0, _ b: CGFloat = 0) {
+        webView.evaluateJavaScript("DrawKitHost.pad('\(phase)', \(a), \(b))", completionHandler: nil)
     }
 
     /// Calls run(), stop() or editAction() on DrawKitHost in host.html
